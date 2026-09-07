@@ -1,17 +1,25 @@
-# amwal_ecr_example
+# AmwalECR Flutter example
 
-A new Flutter project.
+Sample till app for [`amwal_ecr`](https://github.com/amwal-pay/amwal-ecr-flutter),
+aligned with the Android `ecr_sdk` simulator app.
 
-## Getting Started
+## Secure hash keys
 
-This project is a starting point for a Flutter application.
+The example **owns** persistence (SharedPreferences) and picks one secret per
+terminal mode via `EcrSimulatorSettings.secureHashKeyFor`, then assigns it to
+`EcrConfig.secureHashKey`. The plugin does not store or choose keys.
 
-A few resources to get you started if this is your first Flutter project:
+## Tests
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+flutter test
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-# AmwalECR-flutter-example
+Unit-test signing placeholders live in `test/support/ecr_test_configs.dart`
+(same structure as `ecr_sdk` `EcrTestConfigs`):
+
+- `SECURE_HASH_KEY_ECR_WIFI`
+- `SECURE_HASH_KEY_ECR_WIFI_OTHER`
+- `SECURE_HASH_KEY_WEBSERVICE`
+
+Exposed as `lan` / `lanOther` / `webService`. Never commit real Amwal keys.
