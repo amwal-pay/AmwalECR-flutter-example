@@ -208,7 +208,7 @@ class TransactionController extends ChangeNotifier {
         fetchingReceipt: false,
         receipt: const EcrReceiptUnavailable(
           merchantReference: '',
-          reason: 'Receipt fetch is only supported over Wi‑Fi and USB cable ECR',
+          reason: 'Receipt fetch is only supported over Wi‑Fi / USB cable ECR',
           raw: '',
         ),
       ));
@@ -266,11 +266,11 @@ class TransactionController extends ChangeNotifier {
       EcrMode.webService => EcrTransport.webService,
     };
 
-    return EcrTerminal(
+    return EcrSessions.open(
       host: active.usesLan ? terminal.ipAddress : '',
       serialNumber: terminal.serialNumber,
       transport: transport,
       config: active.ecrConfig,
-    );
+    ).terminal;
   }
 }

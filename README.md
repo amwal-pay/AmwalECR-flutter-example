@@ -5,9 +5,17 @@ aligned with the Android `ecr_sdk` simulator app.
 
 ## Secure hash keys
 
-The example **owns** persistence (SharedPreferences) and picks one secret per
-terminal mode via `EcrSimulatorSettings.secureHashKeyFor`, then assigns it to
+The example **owns** persistence and picks one secret per terminal mode via
+`EcrSimulatorSettings.secureHashKeyFor`, then assigns it to
 `EcrConfig.secureHashKey`. The plugin does not store or choose keys.
+
+Secrets are stored with **`flutter_secure_storage`** (iOS Keychain / Android
+Keystore-backed). Environment preference stays in SharedPreferences. On first
+load after upgrade, any plaintext SharedPreferences secrets are migrated once
+and cleared.
+
+Transactions open a client through **`EcrSessions.open`** so LAN / USB / Web
+Service share one path for sale, inquiry, and receipt.
 
 ## Tests
 

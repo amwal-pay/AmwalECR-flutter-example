@@ -34,7 +34,7 @@ dependencies:
   # The plugin under test, by path: the example is how it is exercised, so it
   # must always build against the working tree rather than a published version.
   amwal_ecr:
-    #path: ../amwal-ecr-flutter
+    path: ../amwal-ecr-flutter
 
   # The two things the Android example gets from the platform and Flutter does
   # not. Both are here to match that app, not to demonstrate anything about
@@ -42,6 +42,7 @@ dependencies:
   #   Room        -> shared_preferences: registered terminals survive a restart
   #   ZXing       -> qr_flutter: the e-receipt as a QR code the customer scans
   shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.4
   qr_flutter: ^4.1.0
 
   # The following adds the Cupertino Icons font to your application.
