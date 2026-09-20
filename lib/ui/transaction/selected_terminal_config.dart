@@ -13,6 +13,7 @@ class SelectedTerminalConfig {
     required this.usesWebService,
     required this.usesLan,
     required this.usesUsbCable,
+    required this.usesPaymentApp,
     required this.hashKeyLabel,
     required this.connectionSummary,
   });
@@ -23,6 +24,10 @@ class SelectedTerminalConfig {
   final bool usesWebService;
   final bool usesLan;
   final bool usesUsbCable;
+
+  /// Whether the transaction is handed to the payment app on this device.
+  final bool usesPaymentApp;
+
   final String hashKeyLabel;
   final String connectionSummary;
 
@@ -34,8 +39,12 @@ class SelectedTerminalConfig {
 
   bool get hashKeyConfigured => ecrConfig.secureHashKey.isNotEmpty;
 
-  /// Wi‑Fi or USB cable — both use the LAN signing key / protocol.
-  bool get usesLocalTerminal => usesLan || usesUsbCable;
+  /// Wi‑Fi, USB cable or the payment app on this device — all three use the
+  /// LAN signing key and the same protocol.
+  bool get usesLocalTerminal => usesLan || usesUsbCable || usesPaymentApp;
+
+  static bool _looksLikeApplicationId(String value) =>
+      RegExp(r'^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$').hasMatch(value.trim());
 
   static SelectedTerminalConfig resolve({
     required Terminal terminal,
@@ -59,6 +68,15 @@ class SelectedTerminalConfig {
     final bool usesWebService = terminal.mode == EcrMode.webService;
     final bool usesLan = terminal.mode.isIpBased;
     final bool usesUsbCable = terminal.mode.isUsbCable;
+    final bool usesPaymentApp = terminal.mode.isAppToApp;
+
+    if (usesPaymentApp &&
+        !_looksLikeApplicationId(terminal.paymentAppPackage)) {
+      issues.add(
+        'Application ID must look like com.amwalpay.pos, not '
+        '"${terminal.paymentAppPackage}"',
+      );
+    }
 
     if (usesLan) {
       if (terminal.ipAddress.trim().isEmpty) {
@@ -124,7 +142,9 @@ class SelectedTerminalConfig {
           }()
         : usesUsbCable
             ? 'USB cable'
-            : '${terminal.ipAddress}:$port';
+            : usesPaymentApp
+                ? 'On this device · ${terminal.paymentAppPackage}'
+                : '${terminal.ipAddress}:$port';
 
     return SelectedTerminalConfig(
       terminal: terminal,
@@ -133,6 +153,7 @@ class SelectedTerminalConfig {
       usesWebService: usesWebService,
       usesLan: usesLan,
       usesUsbCable: usesUsbCable,
+      usesPaymentApp: usesPaymentApp,
       hashKeyLabel: usesWebService
           ? EcrSecureHashLabels.webService
           : EcrSecureHashLabels.wifi,

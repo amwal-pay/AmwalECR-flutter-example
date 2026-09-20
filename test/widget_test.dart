@@ -701,6 +701,46 @@ void main() {
       expect(find.textContaining('USB cable', skipOffstage: false), findsWidgets);
     });
 
+    testWidgets('app-to-app asks for an application id, not an address',
+        (WidgetTester tester) async {
+      await pumpTill(tester);
+      await tester.tap(find.byKey(const Key('terminals')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('addTerminal')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('ecrMode')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('App to app').last);
+      await tester.pumpAndSettle();
+
+      // There is no device to dial: the terminal is this one.
+      expect(find.byKey(const Key('ipAddress')), findsNothing);
+      expect(find.byKey(const Key('port')), findsNothing);
+      expect(find.byKey(const Key('packageName')), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('terminalName')),
+        'This device',
+      );
+      await tester.enterText(
+        find.byKey(const Key('serialNumber')),
+        'P653200085192',
+      );
+      await scrollTo(tester, const Key('saveTerminal'));
+      await tester.tap(find.byKey(const Key('saveTerminal')));
+      await tester.pumpAndSettle();
+
+      // Prefilled with the shipped application id, so the ordinary case needs
+      // nothing typed at all.
+      expect(find.text('This device', skipOffstage: false), findsOneWidget);
+      expect(
+        find.textContaining('com.amwalpay.pos', skipOffstage: false),
+        findsWidgets,
+      );
+    });
+
     testWidgets('an unreachable USB cable terminal sends nothing',
         (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{

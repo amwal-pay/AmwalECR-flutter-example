@@ -1,3 +1,5 @@
+import 'package:amwal_ecr/amwal_ecr.dart';
+
 import 'ecr_mode.dart';
 
 /// A registered POS terminal.
@@ -13,6 +15,7 @@ class Terminal {
     this.port = 0,
     this.terminalId = '',
     this.merchantId = '',
+    this.packageName = '',
   }) : ecrMode = ecrMode ?? EcrMode.defaultMode.value;
 
   factory Terminal.fromJson(Map<String, Object?> json) => Terminal(
@@ -23,6 +26,7 @@ class Terminal {
         port: json['port'] as int? ?? 0,
         terminalId: json['terminal_id'] as String? ?? '',
         merchantId: json['merchant_id'] as String? ?? '',
+        packageName: json['package_name'] as String? ?? '',
       );
 
   final String serialNumber;
@@ -32,6 +36,16 @@ class Terminal {
   final int port;
   final String terminalId;
   final String merchantId;
+
+  /// Which payment app app-to-app hands the transaction to.
+  ///
+  /// Stored rather than assumed so a UAT build with another application id can
+  /// be driven; empty means the shipped one.
+  final String packageName;
+
+  /// The application id to start, for [EcrMode.appToApp].
+  String get paymentAppPackage =>
+      packageName.trim().isEmpty ? EcrPaymentApp.defaultPackage : packageName.trim();
 
   EcrMode get mode => EcrMode.fromValue(ecrMode) ?? EcrMode.defaultMode;
 
@@ -43,6 +57,7 @@ class Terminal {
         'port': port,
         'terminal_id': terminalId,
         'merchant_id': merchantId,
+        'package_name': packageName,
       };
 
   String connectionSummary() => switch (mode) {
@@ -57,6 +72,7 @@ class Terminal {
           }(),
         EcrMode.bluetooth => 'Bluetooth',
         EcrMode.usbCable => 'USB cable',
+        EcrMode.appToApp => 'On this device · $paymentAppPackage',
         EcrMode.wifi => switch ((ipAddress, port)) {
             (final String ip, final int p) when ip.isNotEmpty && p > 0 =>
               '$ip:$p',
