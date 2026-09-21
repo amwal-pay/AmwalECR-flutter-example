@@ -701,7 +701,7 @@ void main() {
       expect(find.textContaining('USB cable', skipOffstage: false), findsWidgets);
     });
 
-    testWidgets('app-to-app asks for an application id, not an address',
+    testWidgets('app-to-app asks for nothing to address at all',
         (WidgetTester tester) async {
       await pumpTill(tester);
       await tester.tap(find.byKey(const Key('terminals')));
@@ -715,10 +715,12 @@ void main() {
       await tester.tap(find.text('App to app').last);
       await tester.pumpAndSettle();
 
-      // There is no device to dial: the terminal is this one.
+      // There is no device to dial: the terminal is this one. And no
+      // application to name either — which app takes a payment is not a
+      // setting an operator gets to type.
       expect(find.byKey(const Key('ipAddress')), findsNothing);
       expect(find.byKey(const Key('port')), findsNothing);
-      expect(find.byKey(const Key('packageName')), findsOneWidget);
+      expect(find.byKey(const Key('packageName')), findsNothing);
 
       await tester.enterText(
         find.byKey(const Key('terminalName')),

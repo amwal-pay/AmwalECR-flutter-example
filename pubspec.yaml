@@ -31,9 +31,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The plugin under test, by path: the example is how it is exercised, so it
-  # must always build against the working tree rather than a published version.
-  amwal_ecr:
+  # The package this example is written against. App-to-app arrived in 0.3.0,
+  # and an open constraint would resolve an older one that then fails to
+  # compile — which is exactly what a first `pub get` must not do.
+  amwal_ecr: ^0.3.0
   
   # The two things the Android example gets from the platform and Flutter does
   # not. Both are here to match that app, not to demonstrate anything about
@@ -108,3 +109,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

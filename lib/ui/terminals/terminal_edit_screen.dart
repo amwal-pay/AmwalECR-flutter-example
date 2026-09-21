@@ -43,16 +43,6 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
   late final TextEditingController _terminalId =
       TextEditingController(text: widget.original?.terminalId ?? '');
 
-  /// Which payment app app-to-app hands the transaction to.
-  ///
-  /// Prefilled with the shipped application id, because that is the answer
-  /// every time but a test build.
-  late final TextEditingController _packageName = TextEditingController(
-    text: widget.original?.packageName.isNotEmpty ?? false
-        ? widget.original!.packageName
-        : EcrPaymentApp.defaultPackage,
-  );
-
   _TerminalErrors _errors = const _TerminalErrors();
   String? _saveError;
 
@@ -64,7 +54,6 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
     _port.dispose();
     _merchantId.dispose();
     _terminalId.dispose();
-    _packageName.dispose();
     super.dispose();
   }
 
@@ -84,7 +73,6 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
         port: int.tryParse(_port.text.trim()) ?? 0,
         merchantId: _merchantId.text.trim(),
         terminalId: _terminalId.text.trim(),
-        packageName: _mode.isAppToApp ? _packageName.text.trim() : '',
       ),
       originalSerial: widget.original?.serialNumber,
     );
@@ -173,20 +161,14 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'The terminal is this device. There is no address: the '
-                  'transaction is handed to the Amwal payment app installed '
-                  'here, and the serial number still has to be the one that '
-                  'app drives.',
+                  'The terminal is this device. There is nothing to address: '
+                  'the transaction is handed to the Amwal payment app '
+                  '(${EcrPaymentApp.packageName}), and the serial number still '
+                  'has to be the one that app drives.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                 ),
-              ),
-              _Field(
-                fieldKey: const Key('packageName'),
-                controller: _packageName,
-                label: 'Application ID',
-                error: _errors.packageName,
               ),
             ],
             if (_mode.isIpBased) ...<Widget>[
@@ -289,15 +271,6 @@ class _TerminalEditScreenState extends State<TerminalEditScreen> {
           'Terminal ID must be numeric',
         _ => null,
       },
-      packageName: switch (_mode.isAppToApp) {
-        false => null,
-        true => switch (_packageName.text.trim()) {
-            '' => 'Enter the payment app application ID',
-            final String value when !_applicationId.hasMatch(value) =>
-              'Enter an application ID, for example com.amwalpay.pos',
-            _ => null,
-          },
-      },
     );
   }
 }
@@ -349,7 +322,6 @@ class _TerminalErrors {
     this.port,
     this.merchantId,
     this.terminalId,
-    this.packageName,
   });
 
   final String? name;
@@ -358,7 +330,6 @@ class _TerminalErrors {
   final String? port;
   final String? merchantId;
   final String? terminalId;
-  final String? packageName;
 
   bool get any =>
       name != null ||
@@ -366,15 +337,10 @@ class _TerminalErrors {
       ip != null ||
       port != null ||
       merchantId != null ||
-      terminalId != null ||
-      packageName != null;
+      terminalId != null;
 }
 
 final RegExp _ipv4 = RegExp(
   r'^((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$',
 );
 
-/// An Android application id, which is what app-to-app has instead of an
-/// address. Checked here so an IP typed into that field is caught while the
-/// operator is still looking at it.
-final RegExp _applicationId = RegExp(r'^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$');

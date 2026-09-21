@@ -43,9 +43,6 @@ class SelectedTerminalConfig {
   /// LAN signing key and the same protocol.
   bool get usesLocalTerminal => usesLan || usesUsbCable || usesPaymentApp;
 
-  static bool _looksLikeApplicationId(String value) =>
-      RegExp(r'^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$').hasMatch(value.trim());
-
   static SelectedTerminalConfig resolve({
     required Terminal terminal,
     required EcrEnvironment environment,
@@ -69,14 +66,6 @@ class SelectedTerminalConfig {
     final bool usesLan = terminal.mode.isIpBased;
     final bool usesUsbCable = terminal.mode.isUsbCable;
     final bool usesPaymentApp = terminal.mode.isAppToApp;
-
-    if (usesPaymentApp &&
-        !_looksLikeApplicationId(terminal.paymentAppPackage)) {
-      issues.add(
-        'Application ID must look like com.amwalpay.pos, not '
-        '"${terminal.paymentAppPackage}"',
-      );
-    }
 
     if (usesLan) {
       if (terminal.ipAddress.trim().isEmpty) {
@@ -143,7 +132,7 @@ class SelectedTerminalConfig {
         : usesUsbCable
             ? 'USB cable'
             : usesPaymentApp
-                ? 'On this device · ${terminal.paymentAppPackage}'
+                ? 'On this device · ${EcrPaymentApp.packageName}'
                 : '${terminal.ipAddress}:$port';
 
     return SelectedTerminalConfig(

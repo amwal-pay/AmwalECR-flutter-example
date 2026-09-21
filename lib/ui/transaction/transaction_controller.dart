@@ -279,7 +279,7 @@ class TransactionController extends ChangeNotifier {
       // device to dial, because the terminal is this one.
       host: switch (terminal.mode) {
         EcrMode.wifi => terminal.ipAddress,
-        EcrMode.appToApp => terminal.paymentAppPackage,
+        EcrMode.appToApp => EcrPaymentApp.packageName,
         _ => '',
       },
       serialNumber: terminal.serialNumber,
