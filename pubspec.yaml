@@ -2,7 +2,7 @@ name: amwal_ecr_example
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -31,10 +31,15 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The plugin under test, by path: the example is how it is exercised, so it
-  # must always build against the working tree rather than a published version.
+  # Local checkout of amwal-ecr-flutter (sibling of this repo under amwal_pay_apps).
+  # For a published/live package instead, replace with:
+  #   amwal_ecr: ^<version>
   amwal_ecr:
-  
+    #path: ../amwal-ecr-flutter
+    git:
+      url: https://github.com/amwal-pay/amwal-ecr-flutter
+      ref: feature/ecr-windows
+
   # The two things the Android example gets from the platform and Flutter does
   # not. Both are here to match that app, not to demonstrate anything about
   # amwal_ecr — the package itself has no dependencies beyond Flutter.
@@ -66,7 +71,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   config:
     # Path dependency folder (amwal-ecr-flutter) differs from the Dart package
     # name (amwal_ecr), which breaks SwiftPM identity resolution locally.

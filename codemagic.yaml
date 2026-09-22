@@ -1,0 +1,172 @@
+# Codemagic CI for AmwalECR-flutter-example
+#
+# Workflows:
+#
+#   example-windows   Windows release zip of this till app (tag example-windows-*
+#                     or push to release/example). Uses a sibling clone of
+#                     amwal-ecr-flutter so pubspec path: ../amwal-ecr-flutter works.
+#
+#   example-android   Debug APK smoke build on every push / PR (same path resolve).
+#
+# Optional: set ECR_* environment variables on the workflow for live
+# dart-define seeds (see README). Leaves empty when unset.
+
+definitions:
+  flutter: &flutter
+    flutter: 3.38.5
+  email: &email
+    email:
+      recipients:
+        - amr.elskaan@amwal-pay.com
+      notify:
+        success: true
+        failure: true
+  resolve_amwal_ecr: &resolve_amwal_ecr
+    name: Resolve sibling amwal-ecr-flutter
+    script: |
+      set -euo pipefail
+      # pubspec depends on path: ../amwal-ecr-flutter
+      sibling="$(dirname "$CM_BUILD_DIR")/amwal-ecr-flutter"
+      if [[ -d "$sibling/.git" || -f "$sibling/pubspec.yaml" ]]; then
+        echo "Using existing checkout at $sibling"
+      else
+        repo="${AMWAL_ECR_FLUTTER_REPO:-https://github.com/amwal-pay/amwal-ecr-flutter.git}"
+        ref="${AMWAL_ECR_FLUTTER_REF:-}"
+        echo "Cloning $repo into $sibling"
+        if [[ -n "$ref" ]]; then
+          git clone --depth 1 --branch "$ref" "$repo" "$sibling"
+        else
+          git clone --depth 1 "$repo" "$sibling"
+        fi
+      fi
+      test -f "$sibling/pubspec.yaml"
+      (cd "$sibling" && flutter pub get)
+  live_defines: &live_defines
+    name: Optional live dart-defines
+    script: |
+      set -euo pipefail
+      # Writes CM_BUILD_DIR/.live-defines with --dart-define flags when env is set.
+      : > "$CM_BUILD_DIR/.live-defines"
+      add() {
+        local key="$1" val="${2:-}"
+        if [[ -n "$val" ]]; then
+          printf ' --dart-define=%s=%s' "$key" "$val" >> "$CM_BUILD_DIR/.live-defines"
+        fi
+      }
+      add ECR_ENVIRONMENT "${ECR_ENVIRONMENT:-}"
+      add ECR_WIFI_SECURE_HASH_KEY "${ECR_WIFI_SECURE_HASH_KEY:-}"
+      add ECR_WS_SECURE_HASH_KEY "${ECR_WS_SECURE_HASH_KEY:-}"
+      add ECR_LIVE_MODE "${ECR_LIVE_MODE:-}"
+      add ECR_LIVE_SERIAL "${ECR_LIVE_SERIAL:-}"
+      add ECR_LIVE_TERMINAL_NAME "${ECR_LIVE_TERMINAL_NAME:-}"
+      add ECR_LIVE_IP "${ECR_LIVE_IP:-}"
+      add ECR_LIVE_PORT "${ECR_LIVE_PORT:-}"
+      add ECR_LIVE_MERCHANT_ID "${ECR_LIVE_MERCHANT_ID:-}"
+      add ECR_LIVE_TERMINAL_ID "${ECR_LIVE_TERMINAL_ID:-}"
+      echo "live defines:$(cat "$CM_BUILD_DIR/.live-defines" || true)"
+
+workflows:
+  example-windows:
+    name: AmwalECR example — Windows release
+    instance_type: windows_x2
+    max_build_duration: 60
+    environment:
+      <<: *flutter
+      # Optional: add ECR_* vars here or in a Codemagic group for live seeds.
+      # Do not reference a missing group — it blocks every webhook build.
+    triggering:
+      events:
+        - tag
+        - push
+      tag_patterns:
+        - pattern: 'example-windows-*'
+          include: true
+      branch_patterns:
+        - pattern: 'release/example'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Toolchain
+        script: |
+          flutter --version
+      - *resolve_amwal_ecr
+      - *live_defines
+      - name: flutter pub get
+        script: |
+          flutter pub get
+      - name: Enable Windows desktop
+        script: |
+          flutter config --enable-windows-desktop
+      - name: Analyze
+        script: |
+          flutter analyze --no-fatal-infos
+      - name: Build Windows release
+        script: |
+          set -euo pipefail
+          # Git Bash / PowerShell both understand this when flutter is on PATH.
+          defines="$(cat "$CM_BUILD_DIR/.live-defines" 2>/dev/null || true)"
+          # shellcheck disable=SC2086
+          flutter build windows --release $defines
+      - name: Zip release folder
+        script: |
+          set -euo pipefail
+          # Flutter 3.16+ uses build/windows/x64/runner/Release
+          release_dir=""
+          for candidate in \
+            build/windows/x64/runner/Release \
+            build/windows/runner/Release
+          do
+            if [[ -d "$candidate" ]]; then
+              release_dir="$candidate"
+              break
+            fi
+          done
+          [[ -n "$release_dir" ]] || { echo "Windows Release folder not found" >&2; find build/windows -maxdepth 4 -type d; exit 1; }
+          echo "Zipping $release_dir"
+          (
+            cd "$release_dir"
+            7z a -r ../release.zip ./*
+          )
+          ls -la "$(dirname "$release_dir")/release.zip"
+    artifacts:
+      - build/windows/**/runner/release.zip
+      - build/windows/**/runner/Release/*.exe
+    publishing: *email
+
+  example-android:
+    name: AmwalECR example — Android debug APK
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: 3.38.5
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: '*'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Toolchain
+        script: |
+          flutter --version
+      - *resolve_amwal_ecr
+      - name: flutter pub get
+        script: |
+          flutter pub get
+      - name: Analyze + test
+        script: |
+          set -euo pipefail
+          flutter analyze --no-fatal-infos
+          flutter test
+      - name: Debug APK
+        script: |
+          flutter build apk --debug
+    artifacts:
+      - build/app/outputs/flutter-apk/app-debug.apk
+    publishing: *email
