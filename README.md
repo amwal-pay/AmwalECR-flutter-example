@@ -19,11 +19,81 @@ Clone both repos next to each other under the same parent folder, then:
 
 ```bash
 flutter pub get
-flutter run -d windows   # or chrome-less: windows / android / ios
+flutter run -d windows   # Windows host only
+flutter run -d android
+flutter run -d ios
 ```
 
-To use a **published** package instead, replace the path dependency with a
-version constraint (`amwal_ecr: ^x.y.z`) and run `flutter pub get`.
+For a **published** package, replace the path dependency with
+`amwal_ecr: ^x.y.z` (or a `git:` ref) and run `flutter pub get`.
+
+`flutter run -d windows` / `flutter build windows` work **only on a Windows
+machine** (or Codemagic). They cannot run on macOS or Linux.
+
+## Windows
+
+### What works on Windows
+
+| Mode | Windows |
+|------|---------|
+| Wi‑Fi (LAN TCP, default port `9100`) | ✔ |
+| Web Service (Hub REST) | ✔ |
+| USB cable | ✘ — marked unsupported in the UI (Android only) |
+| Bluetooth | ✘ |
+
+`amwal_ecr` on Windows is a pure-Dart host (`AmwalEcrWindows`) — same Dart API
+as mobile, no separate ECR native binary. The example also uses
+`flutter_secure_storage`, which builds a native Windows plugin and needs
+Visual Studio **C++ ATL**.
+
+### Windows Visual Studio (required)
+
+Without ATL, MSBuild fails with a truncated error that ends in:
+
+```text
+…\flutter_secure_storage_windows_plugin.vcxproj]
+No such file or directory
+```
+
+(often the real missing pieces are `atlstr.h` / `atls.lib`).
+
+1. Open **Visual Studio Installer** → **Modify** on VS 2022
+2. Workload: **Desktop development with C++**
+3. Individual components — enable **C++ ATL for latest v143 build tools (x86 & x64)**
+   (and the Windows 10/11 SDK Flutter already uses)
+4. Clean and rebuild:
+
+```bat
+cd AmwalECR-flutter-example
+flutter clean
+rmdir /s /q build
+flutter pub get
+flutter doctor -v
+flutter run -d windows
+```
+
+Also put the project on a local **NTFS** drive (not OneDrive-only sync, a
+network share, or a ReFS Dev Drive) so plugin symlinks under
+`windows\flutter\ephemeral\.plugin_symlinks` can be created.
+
+If Debug still fails after ATL is installed, try Release once:
+
+```bat
+flutter run -d windows --release
+```
+
+### Firewall and network
+
+Allow the app through Windows Firewall for outbound TCP to the terminal and
+HTTPS to the Hub. The PC and the POS terminal must be able to route to each
+other (guest Wi‑Fi with client isolation will not work).
+
+### Release zip locally
+
+```bat
+flutter build windows --release
+:: Output under build\windows\x64\runner\Release\
+```
 
 ## Live config (`--dart-define`)
 
@@ -70,11 +140,20 @@ Service share one path for sale, inquiry, and receipt.
 
 ## Codemagic
 
-`codemagic.yaml` in this repo builds the Windows release zip (`example-windows`)
-and the Android debug APK (`example-android`). The plugin repo
-[`amwal-ecr-flutter`](https://github.com/amwal-pay/amwal-ecr-flutter) also has
-an `example-windows` workflow that builds its nested `example/` against the
-local package path.
+`codemagic.yaml` in this repo:
+
+| Workflow | When | Artifact |
+|----------|------|----------|
+| `example-windows` | tag `example-windows-*` or push to `release/example` | Windows Release zip |
+| `example-android` | push / PR | Debug APK |
+
+CI clones sibling [`amwal-ecr-flutter`](https://github.com/amwal-pay/amwal-ecr-flutter)
+so `path: ../amwal-ecr-flutter` resolves. The plugin repo also has its own
+`example-windows` workflow for the nested `example/`.
+
+```bash
+git tag example-windows-1 && git push origin example-windows-1
+```
 
 ## Tests
 
