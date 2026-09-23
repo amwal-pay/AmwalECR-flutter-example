@@ -51,6 +51,27 @@ class TransactionController extends ChangeNotifier {
 
   void resultAcknowledged() => _emit(const TransactionIdle());
 
+  /// Tells the terminal the cashier has finished, so it can put its receipt
+  /// away and be ready for the next transaction.
+  ///
+  /// The terminal leaves its receipt up until somebody dismisses it, and when
+  /// a till drove the transaction nobody is standing there to do it. Closing
+  /// the result dialog is the moment the cashier is done, so it is the moment
+  /// to say so.
+  ///
+  /// Deliberately silent, and not something the dialog waits for. The dialog
+  /// closes on the operator's tap either way, and a till that cannot tidy the
+  /// terminal's screen has not failed at anything the cashier needs to hear
+  /// about: on an older terminal, or over Web Service, this is simply refused
+  /// and the receipt stays up exactly as it always did.
+  Future<void> closeTerminalReceipt(String terminalSerial) async {
+    final Terminal? registered = await _repository.findBySerial(terminalSerial);
+    if (registered == null) return;
+
+    final SelectedTerminalConfig active = await _resolveConfig(registered);
+    await _terminalFor(registered, active).closeReceipt();
+  }
+
   Future<void> startTransaction(TransactionRequest request) async {
     if (_state.isBusy) return;
 
@@ -148,7 +169,8 @@ class TransactionController extends ChangeNotifier {
           originalTerminalId: request.originalTerminalId,
         ),
       EcrTransactionType.inquiry ||
-      EcrTransactionType.receipt =>
+      EcrTransactionType.receipt ||
+      EcrTransactionType.closeReceipt =>
         throw StateError('${request.type.displayName} is not run from here'),
     };
 

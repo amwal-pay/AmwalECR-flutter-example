@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -182,6 +184,17 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
   void _dismissResult() {
     Navigator.of(context).pop();
+
+    // The cashier is finished with the sale, which is the one thing the
+    // terminal cannot work out for itself: it leaves its receipt up until
+    // somebody dismisses it, and nobody is standing at it. Not awaited — the
+    // dialog closes now, and tidying the terminal's screen is not something
+    // to make the operator wait for or to report when it cannot be done.
+    final String? serial = _terminal?.serialNumber;
+    if (serial != null) {
+      unawaited(_controller.closeTerminalReceipt(serial));
+    }
+
     _controller.resultAcknowledged();
     _merchantReference.clear();
     _originalReference.clear();

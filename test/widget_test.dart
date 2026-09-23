@@ -93,6 +93,26 @@ void main() {
       expect(platform.calls, <String>['probeReachability', 'sale']);
     });
 
+    testWidgets('closing the result tells the terminal to put its receipt away',
+        (WidgetTester tester) async {
+      // The terminal leaves its receipt up until somebody dismisses it, and
+      // nobody is standing at it — the cashier is here. Closing this dialog is
+      // the moment they are finished, so it is the moment to say so.
+      platform.reachable = true;
+      platform.result = _approved;
+
+      await pumpTill(tester);
+      await keyAmount(tester, '1234');
+      await tapStart(tester);
+
+      expect(platform.calls, <String>['probeReachability', 'sale']);
+
+      await tester.tap(find.byKey(const Key('dismissResult')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls.last, 'closeReceipt');
+    });
+
     testWidgets('an unreachable terminal sends nothing at all',
         (WidgetTester tester) async {
       platform.reachable = false;
@@ -927,6 +947,15 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
     calls.add('receipt');
     lastReceiptNumber = request.receiptNumber;
     return nextReceipt;
+  }
+
+  @override
+  Future<EcrReceiptClosed> closeReceipt(EcrRequest request) async {
+    calls.add('closeReceipt');
+    return EcrReceiptClosedIdle(
+      merchantReference: request.merchantReference,
+      raw: '{}',
+    );
   }
 
   @override
