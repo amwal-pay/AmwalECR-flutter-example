@@ -583,9 +583,15 @@ void main() {
 
       await tester.tap(find.byKey(const Key('terminals')));
       await tester.pumpAndSettle();
+      await scrollTo(tester, const Key('terminal-P653200085189'));
 
-      expect(find.text('Counter 1'), findsOneWidget);
-      expect(find.textContaining('192.168.1.50:9100'), findsOneWidget);
+      expect(find.text('Counter 1', skipOffstage: false), findsOneWidget);
+      // Transaction screen (under the route) and the list tile both mention the
+      // address, so match "at least one" rather than exactly one.
+      expect(
+        find.textContaining('192.168.1.50:9100', skipOffstage: false),
+        findsWidgets,
+      );
       expect(find.byKey(const Key('terminal-P653200085189')), findsOneWidget);
       expect(find.textContaining('Wi‑Fi / USB cable settings'), findsOneWidget);
       expect(find.textContaining('Web Service settings'), findsOneWidget);
