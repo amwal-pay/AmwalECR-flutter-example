@@ -56,6 +56,11 @@ void main() {
           find.byKey(const Key('start'), skipOffstage: false),
         );
         await tester.pumpAndSettle();
+        // Selecting a terminal signs on to learn what it permits. That is a
+        // real call and has its own test; every other test here is about what
+        // a transaction does, so it is cleared rather than written into each
+        // assertion.
+        platform.calls.clear();
         return;
       }
       await tester.pump(const Duration(milliseconds: 50));
@@ -91,6 +96,17 @@ void main() {
 
       // isReachable first, exactly as TransactionViewModel does it.
       expect(platform.calls, <String>['probeReachability', 'sale']);
+    });
+
+    testWidgets('selecting a terminal asks it what it permits',
+        (WidgetTester tester) async {
+      // TMS can disable an operation or move a limit at any moment, and the
+      // terminal picks that up on its next heartbeat. Without asking, a till
+      // keeps offering a button that will now be refused.
+      await tester.pumpWidget(ExampleTillApp(repository: repository));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls, contains('signOn'));
     });
 
     testWidgets('closing the result tells the terminal to put its receipt away',
@@ -797,6 +813,9 @@ void main() {
         if (starts.isNotEmpty && starts.first.onPressed != null) break;
         await tester.pump(const Duration(milliseconds: 50));
       }
+      // Selecting the terminal signed on; this test is about what the
+      // transaction sends.
+      platform.calls.clear();
       await keyAmount(tester, '1234');
       await tapStart(tester);
 
@@ -947,6 +966,16 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
     calls.add('receipt');
     lastReceiptNumber = request.receiptNumber;
     return nextReceipt;
+  }
+
+  @override
+  Future<EcrSignOn> signOn(EcrRequest request) async {
+    calls.add('signOn');
+    return EcrSignOnAvailable(
+      merchantReference: request.merchantReference,
+      capabilities: const EcrTerminalCapabilities(available: true),
+      raw: '{}',
+    );
   }
 
   @override

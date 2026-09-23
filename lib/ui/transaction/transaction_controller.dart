@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:flutter/foundation.dart';
 
@@ -41,6 +43,43 @@ class TransactionController extends ChangeNotifier {
       return;
     }
     _selectedConfig = await _resolveConfig(terminal);
+    notifyListeners();
+    unawaited(_refreshCapabilities(terminal));
+  }
+
+  /// What the selected terminal says it is and what it will accept.
+  ///
+  /// Null until a sign-on has answered, and null again for a terminal that
+  /// cannot be asked. A till should read it before offering a button: TMS can
+  /// disable an operation or move a limit at any moment, and this is the only
+  /// way to find out short of being refused.
+  EcrTerminalCapabilities? get capabilities => _capabilities;
+  EcrTerminalCapabilities? _capabilities;
+
+  /// Asks the terminal what it is, in the background.
+  ///
+  /// Not awaited by the caller and never surfaced as an error: a sign-on that
+  /// fails leaves the till exactly as it was before sign-on existed, offering
+  /// everything and finding out from the refusal. Over Web Service, and on a
+  /// platform that cannot reach the terminal directly, it is refused before
+  /// anything is sent — which is an answer, not a fault.
+  Future<void> _refreshCapabilities(Terminal terminal) async {
+    _capabilities = null;
+    notifyListeners();
+
+    final SelectedTerminalConfig active = await _resolveConfig(terminal);
+    final EcrSignOn answer = await _terminalFor(terminal, active).signOn();
+
+    // Dropped if the operator has moved on to another terminal meanwhile.
+    if (_selectedConfig?.terminal.serialNumber != terminal.serialNumber) return;
+
+    _capabilities = switch (answer) {
+      EcrSignOnAvailable(:final EcrTerminalCapabilities capabilities) =>
+        capabilities,
+      EcrSignOnUnavailable(:final EcrTerminalCapabilities capabilities) =>
+        capabilities,
+      EcrSignOnFailed() => null,
+    };
     notifyListeners();
   }
 
@@ -170,6 +209,7 @@ class TransactionController extends ChangeNotifier {
         ),
       EcrTransactionType.inquiry ||
       EcrTransactionType.receipt ||
+      EcrTransactionType.signOn ||
       EcrTransactionType.closeReceipt =>
         throw StateError('${request.type.displayName} is not run from here'),
     };
