@@ -34,7 +34,7 @@ dependencies:
   # Sibling checkout with both app-to-app and Windows (amwal_ecr 0.3.0).
   # Once that version is on pub.dev, this can be `amwal_ecr: ^0.3.0` instead.
   amwal_ecr:
-    path: ../amwal-ecr-flutter
+    # path: ../amwal-ecr-flutter
   # The two things the Android example gets from the platform and Flutter does
   # not. Both are here to match that app, not to demonstrate anything about
   # amwal_ecr — the package itself has no dependencies beyond Flutter.
