@@ -104,10 +104,13 @@ void main() {
       // a terminal that refused from one that was never reached — which is
       // the whole reason sign-on exists.
       await pumpTill(tester);
-      await tester.pumpAndSettle();
+      await scrollTo(tester, const Key('terminalStatus'));
 
       expect(find.byKey(const Key('terminalStatus')), findsOneWidget);
-      expect(find.text('Terminal ready'), findsOneWidget);
+      expect(
+        find.textContaining('Terminal ready', skipOffstage: false),
+        findsOneWidget,
+      );
     });
 
     testWidgets('selecting a terminal asks it what it permits',
@@ -645,6 +648,27 @@ void main() {
       expect(find.textContaining('Web Service settings'), findsOneWidget);
     });
 
+    testWidgets('the list asks nothing until Check is pressed',
+        (WidgetTester tester) async {
+      // Opening this screen to rename a terminal should not start a round of
+      // handshakes across every registered one.
+      await pumpTill(tester);
+      await tester.tap(find.byKey(const Key('terminals')));
+      await tester.pumpAndSettle();
+      platform.calls.clear();
+
+      await scrollTo(tester, const Key('check-P653200085189'));
+      expect(platform.calls, isEmpty);
+
+      await tester.tap(find.byKey(const Key('check-P653200085189')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls, <String>['signOn']);
+      // The transaction screen under this route has a status line of its own,
+      // so match "at least one" as the address assertions above do.
+      expect(find.text('Sale · Inquiry', skipOffstage: false), findsWidgets);
+    });
+
     testWidgets('a terminal is added with name, serial, address and port',
         (WidgetTester tester) async {
       await pumpTill(tester);
@@ -991,7 +1015,19 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
     calls.add('signOn');
     return EcrSignOnAvailable(
       merchantReference: request.merchantReference,
-      capabilities: const EcrTerminalCapabilities(available: true),
+      capabilities: const EcrTerminalCapabilities(
+        available: true,
+        ecrMode: 2,
+        terminalName: 'Counter 1',
+        permitted: <EcrPermittedTransaction>[
+          EcrPermittedTransaction(
+            type: EcrTransactionType.sale,
+            minAmount: '0.100',
+            maxAmount: '5.000',
+          ),
+          EcrPermittedTransaction(type: EcrTransactionType.inquiry),
+        ],
+      ),
       raw: '{}',
     );
   }

@@ -34,11 +34,14 @@ final class TerminalReady extends TerminalSignOnState {
   EcrTerminalCapabilities? get capabilities => _capabilities;
 
   /// The operations it permits, as a till would list them.
+  ///
+  /// Names only. The amount limits are on
+  /// [EcrTerminalCapabilities.limitsFor] for a till that enforces them in its
+  /// own amount field, and are not worth the width here — the terminal checks
+  /// them again on every request anyway.
   List<String> get permitted => <String>[
     for (final EcrPermittedTransaction entry in _capabilities.permitted)
-      entry.maxAmount.isEmpty
-          ? entry.type.displayName
-          : '${entry.type.displayName} ≤ ${entry.maxAmount}',
+      entry.type.displayName,
   ];
 }
 

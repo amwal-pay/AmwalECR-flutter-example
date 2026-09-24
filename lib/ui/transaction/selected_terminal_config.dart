@@ -43,6 +43,28 @@ class SelectedTerminalConfig {
   /// LAN signing key and the same protocol.
   bool get usesLocalTerminal => usesLan || usesUsbCable || usesPaymentApp;
 
+  /// The transport the SDK is opened with for this terminal's mode.
+  ///
+  /// Here rather than at each call site on purpose: the native app kept two
+  /// copies of this mapping and they drifted the moment a transport needed
+  /// something the others did not — a terminal registered as app to app
+  /// planned correctly in one place and crashed in the other.
+  EcrTransport get ecrTransport => switch (mode) {
+    EcrMode.usbCable => EcrTransport.usbCable,
+    EcrMode.wifi => EcrTransport.wifi,
+    EcrMode.bluetooth => EcrTransport.bluetooth,
+    EcrMode.webService => EcrTransport.webService,
+    EcrMode.appToApp => EcrTransport.appToApp,
+  };
+
+  /// The address the SDK is opened with. Empty for every transport that has
+  /// none — a cable finds itself, and the payment app is fixed.
+  String get ecrHost => switch (mode) {
+    EcrMode.wifi => terminal.ipAddress,
+    EcrMode.appToApp => EcrPaymentApp.packageName,
+    _ => '',
+  };
+
   static SelectedTerminalConfig resolve({
     required Terminal terminal,
     required EcrEnvironment environment,

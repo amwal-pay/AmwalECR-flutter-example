@@ -342,26 +342,18 @@ class TransactionController extends ChangeNotifier {
     return digits.length >= 8 ? digits.substring(0, 8) : '';
   }
 
-  EcrTerminal _terminalFor(Terminal terminal, SelectedTerminalConfig active) {
-    final EcrTransport transport = switch (terminal.mode) {
-      EcrMode.usbCable => EcrTransport.usbCable,
-      EcrMode.wifi => EcrTransport.wifi,
-      EcrMode.bluetooth => EcrTransport.bluetooth,
-      EcrMode.webService => EcrTransport.webService,
-      EcrMode.appToApp => EcrTransport.appToApp,
-    };
-
-    return EcrSessions.open(
-      // The one transport whose "address" is an application id: there is no
-      // device to dial, because the terminal is this one.
-      host: switch (terminal.mode) {
-        EcrMode.wifi => terminal.ipAddress,
-        EcrMode.appToApp => EcrPaymentApp.packageName,
-        _ => '',
-      },
-      serialNumber: terminal.serialNumber,
-      transport: transport,
-      config: active.ecrConfig,
-    ).terminal;
-  }
+  /// The SDK terminal for one registered terminal.
+  ///
+  /// Transport and host come from [SelectedTerminalConfig] rather than being
+  /// mapped again here. The native app kept two copies of that mapping and they
+  /// drifted the moment a transport needed something the others did not — a
+  /// terminal registered as app to app planned correctly in one place and
+  /// crashed in the other.
+  EcrTerminal _terminalFor(Terminal terminal, SelectedTerminalConfig active) =>
+      EcrSessions.open(
+        host: active.ecrHost,
+        serialNumber: terminal.serialNumber,
+        transport: active.ecrTransport,
+        config: active.ecrConfig,
+      ).terminal;
 }

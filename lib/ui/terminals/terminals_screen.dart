@@ -1,9 +1,15 @@
+import 'dart:async';
+
+import 'package:amwal_ecr/amwal_ecr.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/ecr_simulator_settings.dart';
 import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
 import '../components/environment_selector.dart';
+import '../transaction/selected_terminal_config.dart';
+import '../transaction/terminal_sign_on_state.dart';
+import 'terminal_card.dart';
 import 'terminal_edit_screen.dart';
 
 class TerminalsScreen extends StatefulWidget {
@@ -18,6 +24,55 @@ class TerminalsScreen extends StatefulWidget {
 class _TerminalsScreenState extends State<TerminalsScreen> {
   List<Terminal> _terminals = const <Terminal>[];
   EcrSimulatorSettings? _settings;
+
+  /// What each terminal said when the operator last pressed Check, by serial.
+  ///
+  /// **Nothing is asked on its own here.** Opening this screen to rename a
+  /// terminal should not start a round of handshakes across every registered
+  /// one — some are not on this network and one is a cable. The operator asks
+  /// when they want to know, and the transaction screen asks the one it is
+  /// about to use.
+  final Map<String, TerminalSignOnState> _signOns =
+      <String, TerminalSignOnState>{};
+
+  /// Asks one terminal what it is.
+  ///
+  /// App to app and Web Service are not asked at all — see
+  /// `EcrTransport.supportsSignOn`. The button says so rather than pretending
+  /// to ask: "this link is not asked" is a different fact from "it did not
+  /// answer", and an operator who cannot tell them apart goes looking for a
+  /// fault that is not there.
+  Future<void> _check(Terminal terminal) async {
+    final EcrSimulatorSettings settings =
+        _settings ?? await EcrSimulatorSettings.load();
+    final SelectedTerminalConfig active = SelectedTerminalConfig.resolve(
+      terminal: terminal,
+      environment: settings.environment,
+      secureHashKey: settings.secureHashKeyFor(terminal.mode),
+    );
+
+    if (!active.ecrTransport.supportsSignOn) {
+      setState(() {
+        _signOns[terminal.serialNumber] = TerminalNoAnswer(
+          '${terminal.mode.label} is not asked — it reports through the '
+          'transaction that uses it',
+        );
+      });
+      return;
+    }
+
+    setState(() => _signOns[terminal.serialNumber] = const TerminalAsking());
+
+    final EcrSignOn answer = await EcrSessions.open(
+      host: active.ecrHost,
+      serialNumber: terminal.serialNumber,
+      transport: active.ecrTransport,
+      config: active.ecrConfig,
+    ).terminal.signOn();
+
+    if (!mounted) return;
+    setState(() => _signOns[terminal.serialNumber] = terminalStateOf(answer));
+  }
 
   @override
   void initState() {
@@ -118,22 +173,12 @@ class _TerminalsScreenState extends State<TerminalsScreen> {
                     )
                   else
                     ..._terminals.map(
-                      (Terminal terminal) => Card(
-                        child: ListTile(
-                          key: Key('terminal-${terminal.serialNumber}'),
-                          title: Text(terminal.name),
-                          subtitle: Text(
-                            '${terminal.serialNumber}\n'
-                            '${terminal.mode.label} · ${terminal.connectionSummary()}',
-                          ),
-                          isThreeLine: true,
-                          onTap: () => _edit(terminal),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            tooltip: 'Remove',
-                            onPressed: () => _delete(terminal),
-                          ),
-                        ),
+                      (Terminal terminal) => TerminalCard(
+                        terminal: terminal,
+                        signOn: _signOns[terminal.serialNumber],
+                        onCheck: () => unawaited(_check(terminal)),
+                        onEdit: () => _edit(terminal),
+                        onDelete: () => _delete(terminal),
                       ),
                     ),
                 ],
