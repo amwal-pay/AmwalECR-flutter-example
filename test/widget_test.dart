@@ -98,6 +98,18 @@ void main() {
       expect(platform.calls, <String>['probeReachability', 'sale']);
     });
 
+    testWidgets('the sign-on answer is shown, not just asked for',
+        (WidgetTester tester) async {
+      // A till that asks and shows nothing leaves its operator unable to tell
+      // a terminal that refused from one that was never reached — which is
+      // the whole reason sign-on exists.
+      await pumpTill(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('terminalStatus')), findsOneWidget);
+      expect(find.text('Terminal ready'), findsOneWidget);
+    });
+
     testWidgets('selecting a terminal asks it what it permits',
         (WidgetTester tester) async {
       // TMS can disable an operation or move a limit at any moment, and the
@@ -864,6 +876,12 @@ EcrInquiryFound _found(String status) => EcrInquiryFound(
 
 /// Picks a transaction type from the dropdown.
 Future<void> _chooseType(WidgetTester tester, String label) async {
+  // Scrolled to first: the terminal status card sits above the dropdown, and a
+  // ListView treats anything below the fold as offstage.
+  await tester.ensureVisible(
+    find.byKey(const Key('transactionType'), skipOffstage: false),
+  );
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('transactionType')));
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);

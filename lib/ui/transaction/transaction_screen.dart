@@ -11,6 +11,7 @@ import '../components/dropdown.dart';
 import 'terminal_config_card.dart';
 import 'transaction_controller.dart';
 import 'transaction_form.dart';
+import 'terminal_status_line.dart';
 import 'transaction_result_dialog.dart';
 import 'transaction_state.dart';
 
@@ -460,6 +461,13 @@ class _TransactionScreenState extends State<TransactionScreen> {
             if (_controller.selectedConfig != null) ...<Widget>[
               const SizedBox(height: 16),
               TerminalConfigCard(config: _controller.selectedConfig!),
+              // What the terminal itself says, as against what this till was
+              // configured with. The card above is the till's own settings;
+              // this line is the terminal's answer, and they can disagree.
+              TerminalStatusLine(
+                signOn: _controller.signOn,
+                onRefresh: () => unawaited(_controller.refreshSignOn()),
+              ),
             ],
             const SizedBox(height: 16),
 

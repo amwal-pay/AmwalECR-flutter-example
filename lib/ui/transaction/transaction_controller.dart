@@ -8,6 +8,7 @@ import '../../data/ecr_simulator_settings.dart';
 import '../../data/terminal.dart';
 import '../../data/terminal_repository.dart';
 import 'selected_terminal_config.dart';
+import 'terminal_sign_on_state.dart';
 import 'transaction_state.dart';
 
 class TransactionController extends ChangeNotifier {
@@ -47,40 +48,54 @@ class TransactionController extends ChangeNotifier {
     unawaited(_refreshCapabilities(terminal));
   }
 
-  /// What the selected terminal says it is and what it will accept.
+  /// What the till knows about the selected terminal, for the status line.
   ///
-  /// Null until a sign-on has answered, and null again for a terminal that
-  /// cannot be asked. A till should read it before offering a button: TMS can
-  /// disable an operation or move a limit at any moment, and this is the only
-  /// way to find out short of being refused.
-  EcrTerminalCapabilities? get capabilities => _capabilities;
-  EcrTerminalCapabilities? _capabilities;
+  /// Null before any terminal is selected. A till should read
+  /// [TerminalReady.capabilities] before offering a button: TMS can disable an
+  /// operation or move a limit at any moment, and this is the only way to find
+  /// out short of being refused.
+  TerminalSignOnState? get signOn => _signOn;
+  TerminalSignOnState? _signOn;
 
   /// Asks the terminal what it is, in the background.
   ///
-  /// Not awaited by the caller and never surfaced as an error: a sign-on that
-  /// fails leaves the till exactly as it was before sign-on existed, offering
-  /// everything and finding out from the refusal. Over Web Service, and on a
-  /// platform that cannot reach the terminal directly, it is refused before
-  /// anything is sent — which is an answer, not a fault.
+  /// Not awaited by the caller and never thrown: a sign-on that fails leaves
+  /// the till exactly as it was before sign-on existed, offering everything and
+  /// finding out from the refusal. It is *shown*, though — an operator looking
+  /// at the till should be able to see that the terminal was asked and what it
+  /// said. Over Web Service, and on a platform that cannot address the terminal
+  /// directly, it is refused before anything is sent, which is an answer rather
+  /// than a fault.
   Future<void> _refreshCapabilities(Terminal terminal) async {
-    _capabilities = null;
-    notifyListeners();
-
     final SelectedTerminalConfig active = await _resolveConfig(terminal);
+
+    // App to app is not asked at all, and neither is Web Service. There the
+    // sign-on would cost a handover the operator watches, to learn something
+    // the next refusal carries anyway — see EcrTransport.supportsSignOn. No
+    // status line is better than one claiming a terminal was not ready when
+    // nothing was asked of it.
+    if (active.usesPaymentApp || active.usesWebService) {
+      _signOn = null;
+      notifyListeners();
+      return;
+    }
+
+    _signOn = const TerminalAsking();
+    notifyListeners();
     final EcrSignOn answer = await _terminalFor(terminal, active).signOn();
 
     // Dropped if the operator has moved on to another terminal meanwhile.
     if (_selectedConfig?.terminal.serialNumber != terminal.serialNumber) return;
 
-    _capabilities = switch (answer) {
-      EcrSignOnAvailable(:final EcrTerminalCapabilities capabilities) =>
-        capabilities,
-      EcrSignOnUnavailable(:final EcrTerminalCapabilities capabilities) =>
-        capabilities,
-      EcrSignOnFailed() => null,
-    };
+    _signOn = terminalStateOf(answer);
     notifyListeners();
+  }
+
+  /// Asks again, for the button on the status line.
+  Future<void> refreshSignOn() async {
+    final Terminal? terminal = _selectedConfig?.terminal;
+    if (terminal == null) return;
+    await _refreshCapabilities(terminal);
   }
 
   void _emit(TransactionState next) {
