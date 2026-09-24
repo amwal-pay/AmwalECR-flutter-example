@@ -123,6 +123,14 @@ class TransactionController extends ChangeNotifier {
     if (registered == null) return;
 
     final SelectedTerminalConfig active = await _resolveConfig(registered);
+
+    // Not for the payment app on this device, and not because it would fail —
+    // because it has already happened. An app-to-app answer is held until the
+    // operator closes the receipt, so the terminal is idle again by the time
+    // this dialog appeared. Sending it anyway brought the payment app to the
+    // front for a moment and sent it away again, for nothing.
+    if (!active.ecrTransport.supportsCloseReceipt) return;
+
     await _terminalFor(registered, active).closeReceipt();
   }
 
