@@ -32,19 +32,12 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # The ECR SDK comes from CocoaPods trunk: the plugin's podspec depends on the
-  # released AmwalECR, and an integrator writes nothing here — `flutter pub add
-  # amwal_ecr` pulls it on its own.
-  #
-  # To smoke-test the example against an unreleased SDK, check out
-  # AmwalECR-iOS-CocoaPods beside this repository and uncomment the line below.
-  # Note that adding or removing a file in that checkout's Sources/AmwalECR then
-  # means re-running `pod install` here before the example will build: CocoaPods
-  # expands s.source_files into an explicit file list inside Pods.xcodeproj when
-  # it installs, and `flutter build ios` has no reason to redo that. The symptom
-  # is a compile error naming the new type ("cannot find 'SecureHash' in scope").
-  # Editing existing files needs nothing.
-  #
+  # Local AmwalECR 0.2.2, which adds sign-on. Overrides the plugin's trunk pin
+  # while this checkout sits beside the example.
+  local_sdk = File.expand_path('../../AmwalECR-iOS-CocoaPods', __dir__)
+  if File.directory?(local_sdk)
+    pod 'AmwalECR', :path => local_sdk
+  end
 
   target 'RunnerTests' do
     inherit! :search_paths
