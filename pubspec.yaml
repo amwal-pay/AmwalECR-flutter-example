@@ -31,8 +31,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Sibling checkout with both app-to-app and Windows (amwal_ecr 0.3.0).
-  # Once that version is on pub.dev, this can be `amwal_ecr: ^0.3.0` instead.
+  # Sibling checkout — must match amwal-ecr-flutter/example so iOS sign-on
+  # and other host features stay in lockstep with the plugin working tree.
   amwal_ecr:
     # path: ../amwal-ecr-flutter
   # The two things the Android example gets from the platform and Flutter does

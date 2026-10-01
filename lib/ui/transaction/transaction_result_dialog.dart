@@ -164,20 +164,20 @@ class InquiryResultDialog extends StatelessWidget {
           headline: partial
               ? 'Partially approved'
               : transaction.status.isEmpty
-                  ? 'Found'
-                  : transaction.status,
+              ? 'Found'
+              : transaction.status,
           icon: settled ? Icons.check_circle : Icons.cancel,
           tint: settled ? approvedGreen : declinedRed,
           amount: partial ? transaction.authorizedAmount : transaction.amount,
           message: partial
               ? 'Only ${transaction.authorizedAmount} of ${transaction.amount} '
-                  'was approved. Collect the difference by another means.'
+                    'was approved. Collect the difference by another means.'
               : settled
-                  ? null
-                  : EcrWireResponse.displayMessageFromRaw(
-                      raw,
-                      fallback: transaction.status,
-                    ),
+              ? null
+              : EcrWireResponse.displayMessageFromRaw(
+                  raw,
+                  fallback: transaction.status,
+                ),
           // What a till needs to recognise the transaction. The rest of the
           // record is a tap away under the raw response.
           fields: <(String, String)>[

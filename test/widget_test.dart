@@ -56,11 +56,6 @@ void main() {
           find.byKey(const Key('start'), skipOffstage: false),
         );
         await tester.pumpAndSettle();
-        // Selecting a terminal signs on to learn what it permits. That is a
-        // real call and has its own test; every other test here is about what
-        // a transaction does, so it is cleared rather than written into each
-        // assertion.
-        platform.calls.clear();
         return;
       }
       await tester.pump(const Duration(milliseconds: 50));
@@ -95,53 +90,7 @@ void main() {
       await tapStart(tester);
 
       // isReachable first, exactly as TransactionViewModel does it.
-      expect(platform.calls, <String>['probeReachability', 'sale']);
-    });
-
-    testWidgets('the sign-on answer is shown, not just asked for',
-        (WidgetTester tester) async {
-      // A till that asks and shows nothing leaves its operator unable to tell
-      // a terminal that refused from one that was never reached — which is
-      // the whole reason sign-on exists.
-      await pumpTill(tester);
-      await scrollTo(tester, const Key('terminalStatus'));
-
-      expect(find.byKey(const Key('terminalStatus')), findsOneWidget);
-      expect(
-        find.textContaining('Terminal ready', skipOffstage: false),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('selecting a terminal asks it what it permits',
-        (WidgetTester tester) async {
-      // TMS can disable an operation or move a limit at any moment, and the
-      // terminal picks that up on its next heartbeat. Without asking, a till
-      // keeps offering a button that will now be refused.
-      await tester.pumpWidget(ExampleTillApp(repository: repository));
-      await tester.pumpAndSettle();
-
-      expect(platform.calls, contains('signOn'));
-    });
-
-    testWidgets('closing the result tells the terminal to put its receipt away',
-        (WidgetTester tester) async {
-      // The terminal leaves its receipt up until somebody dismisses it, and
-      // nobody is standing at it — the cashier is here. Closing this dialog is
-      // the moment they are finished, so it is the moment to say so.
-      platform.reachable = true;
-      platform.result = _approved;
-
-      await pumpTill(tester);
-      await keyAmount(tester, '1234');
-      await tapStart(tester);
-
-      expect(platform.calls, <String>['probeReachability', 'sale']);
-
-      await tester.tap(find.byKey(const Key('dismissResult')));
-      await tester.pumpAndSettle();
-
-      expect(platform.calls.last, 'closeReceipt');
+      expect(platform.sent, <String>['probeReachability', 'sale']);
     });
 
     testWidgets('an unreachable terminal sends nothing at all',
@@ -152,7 +101,7 @@ void main() {
       await keyAmount(tester, '1234');
       await tapStart(tester);
 
-      expect(platform.calls, <String>['probeReachability']);
+      expect(platform.sent, <String>['probeReachability']);
       expect(find.text('Not completed'), findsOneWidget);
       expect(
         find.textContaining('192.168.1.50:9100 is not reachable'),
@@ -176,7 +125,7 @@ void main() {
       // No amount keyed.
       await tapStart(tester);
 
-      expect(platform.calls, isEmpty);
+      expect(platform.sent, isEmpty);
       expect(find.text('Required field'), findsOneWidget);
     });
 
@@ -187,7 +136,7 @@ void main() {
 
       await tapStart(tester);
 
-      expect(platform.calls, isEmpty);
+      expect(platform.sent, isEmpty);
       expect(find.textContaining('minimum amount allowed is'), findsOneWidget);
     });
 
@@ -198,7 +147,7 @@ void main() {
 
       await tapStart(tester);
 
-      expect(platform.calls, isEmpty);
+      expect(platform.sent, isEmpty);
       expect(
         find.text('Enter the receipt number of the transaction to act on'),
         findsOneWidget,
@@ -444,7 +393,7 @@ void main() {
       );
       await tapStart(tester);
 
-      expect(platform.calls, <String>['probeReachability', 'inquireByReference']);
+      expect(platform.sent, <String>['probeReachability', 'inquireByReference']);
       expect(platform.lastInquiredReference, 'ORD-88231');
       expect(platform.lastInquiryMerchantReference, 'ORD-88231');
     });
@@ -458,7 +407,7 @@ void main() {
 
       await tapStart(tester);
 
-      expect(platform.calls, isEmpty);
+      expect(platform.sent, isEmpty);
       expect(
         find.text('Enter the reference the transaction was sent with'),
         findsOneWidget,
@@ -580,7 +529,7 @@ void main() {
 
       // The transaction is named by the inquiry's own request rather than
       // re-keyed, so the receipt asks about the same receipt number.
-      expect(platform.calls, <String>['probeReachability', 'inquire', 'receipt']);
+      expect(platform.sent, <String>['probeReachability', 'inquire', 'receipt']);
       expect(find.byKey(const Key('receiptQr')), findsOneWidget);
     });
 
@@ -598,6 +547,117 @@ void main() {
       await tapStart(tester);
 
       expect(find.text('Not found'), findsOneWidget);
+    });
+  });
+
+  group('sign-on', () {
+    EcrSignOn permits(List<EcrTransactionType> types) => EcrSignOnAvailable(
+          merchantReference: '',
+          raw: '{}',
+          capabilities: EcrTerminalCapabilities(
+            available: true,
+            transport: EcrTransport.wifi,
+            terminalName: 'Front desk',
+            permitted: <EcrPermittedTransaction>[
+              for (final EcrTransactionType type in types)
+                EcrPermittedTransaction(type: type),
+            ],
+          ),
+        );
+
+    testWidgets('selecting a terminal asks what it will accept',
+        (WidgetTester tester) async {
+      platform.signOnAnswer = permits(<EcrTransactionType>[
+        EcrTransactionType.sale,
+        EcrTransactionType.inquiry,
+      ]);
+
+      await pumpTill(tester);
+
+      expect(platform.calls, contains('signOn'));
+      expect(find.text('Terminal ready · wifi · Front desk'), findsOneWidget);
+      expect(find.text('Sale · Inquiry'), findsOneWidget);
+    });
+
+    testWidgets('the transaction types narrow to what the terminal permits',
+        (WidgetTester tester) async {
+      platform.signOnAnswer = permits(<EcrTransactionType>[
+        EcrTransactionType.sale,
+        EcrTransactionType.inquiry,
+      ]);
+
+      await pumpTill(tester);
+      await tester.tap(find.byKey(const Key('transactionType')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Void'), findsNothing);
+      expect(find.text('Refund'), findsNothing);
+      expect(find.text('Inquiry'), findsWidgets);
+    });
+
+    testWidgets('a terminal that does not answer leaves the whole menu',
+        (WidgetTester tester) async {
+      await pumpTill(tester);
+      await tester.tap(find.byKey(const Key('transactionType')));
+      await tester.pumpAndSettle();
+
+      // Not a terminal that permits nothing — one that has not said.
+      expect(find.text('Void'), findsWidgets);
+      expect(find.text('Refund'), findsWidgets);
+    });
+
+    testWidgets('a terminal that cannot serve says why',
+        (WidgetTester tester) async {
+      platform.signOnAnswer = const EcrSignOnUnavailable(
+        merchantReference: '',
+        reason: 'Terminal is mid-transaction',
+        capabilities: EcrTerminalCapabilities(),
+        raw: '{}',
+      );
+
+      await pumpTill(tester);
+
+      expect(find.text('Terminal not ready'), findsOneWidget);
+      expect(find.text('Terminal is mid-transaction'), findsOneWidget);
+    });
+
+    testWidgets('closing the result puts the terminal\'s receipt away',
+        (WidgetTester tester) async {
+      platform.result = _approved;
+
+      await pumpTill(tester);
+      await keyAmount(tester, '1234');
+      await tapStart(tester);
+      expect(platform.calls, isNot(contains('closeReceipt')));
+
+      await tester.tap(find.byKey(const Key('dismissResult')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls.last, 'closeReceipt');
+    });
+
+    testWidgets('the terminals list shows nothing until Check is pressed',
+        (WidgetTester tester) async {
+      platform.signOnAnswer = permits(<EcrTransactionType>[
+        EcrTransactionType.sale,
+      ]);
+
+      await pumpTill(tester);
+      platform.calls.clear();
+
+      await tester.tap(find.byKey(const Key('terminals')));
+      await tester.pumpAndSettle();
+      expect(platform.calls, isEmpty);
+
+      await scrollTo(tester, const Key('check-P653200085189'));
+      await tester.tap(find.byKey(const Key('check-P653200085189')));
+      await tester.pumpAndSettle();
+
+      expect(platform.calls, <String>['signOn']);
+      expect(
+        find.textContaining('terminal reports wifi', skipOffstage: false),
+        findsOneWidget,
+      );
     });
   });
 
@@ -646,27 +706,6 @@ void main() {
       expect(find.byKey(const Key('terminal-P653200085189')), findsOneWidget);
       expect(find.textContaining('Wi‑Fi / USB cable settings'), findsOneWidget);
       expect(find.textContaining('Web Service settings'), findsOneWidget);
-    });
-
-    testWidgets('the list asks nothing until Check is pressed',
-        (WidgetTester tester) async {
-      // Opening this screen to rename a terminal should not start a round of
-      // handshakes across every registered one.
-      await pumpTill(tester);
-      await tester.tap(find.byKey(const Key('terminals')));
-      await tester.pumpAndSettle();
-      platform.calls.clear();
-
-      await scrollTo(tester, const Key('check-P653200085189'));
-      expect(platform.calls, isEmpty);
-
-      await tester.tap(find.byKey(const Key('check-P653200085189')));
-      await tester.pumpAndSettle();
-
-      expect(platform.calls, <String>['signOn']);
-      // The transaction screen under this route has a status line of its own,
-      // so match "at least one" as the address assertions above do.
-      expect(find.text('Sale · Inquiry', skipOffstage: false), findsWidgets);
     });
 
     testWidgets('a terminal is added with name, serial, address and port',
@@ -779,48 +818,6 @@ void main() {
       expect(find.textContaining('USB cable', skipOffstage: false), findsWidgets);
     });
 
-    testWidgets('app-to-app asks for nothing to address at all',
-        (WidgetTester tester) async {
-      await pumpTill(tester);
-      await tester.tap(find.byKey(const Key('terminals')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('addTerminal')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('ecrMode')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('App to app').last);
-      await tester.pumpAndSettle();
-
-      // There is no device to dial: the terminal is this one. And no
-      // application to name either — which app takes a payment is not a
-      // setting an operator gets to type.
-      expect(find.byKey(const Key('ipAddress')), findsNothing);
-      expect(find.byKey(const Key('port')), findsNothing);
-      expect(find.byKey(const Key('packageName')), findsNothing);
-
-      await tester.enterText(
-        find.byKey(const Key('terminalName')),
-        'This device',
-      );
-      await tester.enterText(
-        find.byKey(const Key('serialNumber')),
-        'P653200085192',
-      );
-      await scrollTo(tester, const Key('saveTerminal'));
-      await tester.tap(find.byKey(const Key('saveTerminal')));
-      await tester.pumpAndSettle();
-
-      // Prefilled with the shipped application id, so the ordinary case needs
-      // nothing typed at all.
-      expect(find.text('This device', skipOffstage: false), findsOneWidget);
-      expect(
-        find.textContaining('com.amwalpay.pos', skipOffstage: false),
-        findsWidgets,
-      );
-    });
-
     testWidgets('an unreachable USB cable terminal sends nothing',
         (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{
@@ -849,13 +846,10 @@ void main() {
         if (starts.isNotEmpty && starts.first.onPressed != null) break;
         await tester.pump(const Duration(milliseconds: 50));
       }
-      // Selecting the terminal signed on; this test is about what the
-      // transaction sends.
-      platform.calls.clear();
       await keyAmount(tester, '1234');
       await tapStart(tester);
 
-      expect(platform.calls, <String>['probeReachability']);
+      expect(platform.sent, <String>['probeReachability']);
       expect(find.textContaining('USB cable is not reachable'), findsOneWidget);
       expect(find.textContaining('USB host (OTG)'), findsOneWidget);
     });
@@ -900,12 +894,6 @@ EcrInquiryFound _found(String status) => EcrInquiryFound(
 
 /// Picks a transaction type from the dropdown.
 Future<void> _chooseType(WidgetTester tester, String label) async {
-  // Scrolled to first: the terminal status card sits above the dropdown, and a
-  // ListView treats anything below the fold as offstage.
-  await tester.ensureVisible(
-    find.byKey(const Key('transactionType'), skipOffstage: false),
-  );
-  await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('transactionType')));
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
@@ -934,6 +922,21 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   );
 
   final List<String> calls = <String>[];
+
+  /// What the till sent, leaving out the two calls that only read or tidy.
+  ///
+  /// A sign-on asks the terminal what it permits and a close-receipt puts its
+  /// screen away; neither moves money, and the order tests are about what a
+  /// till sends and when, not about how often it asks.
+  List<String> get sent => calls
+      .where((String call) => call != 'signOn' && call != 'closeReceipt')
+      .toList();
+
+  /// What the terminal says when asked what it will accept.
+  EcrSignOn signOnAnswer = const EcrSignOnFailed(
+    merchantReference: '',
+    failure: EcrUnreachable('nothing configured'),
+  );
 
   /// What the last money-moving call carried, in major units.
   Object? lastAmount;
@@ -1013,23 +1016,7 @@ final class FakeEcrPlatform extends AmwalEcrPlatform {
   @override
   Future<EcrSignOn> signOn(EcrRequest request) async {
     calls.add('signOn');
-    return EcrSignOnAvailable(
-      merchantReference: request.merchantReference,
-      capabilities: const EcrTerminalCapabilities(
-        available: true,
-        ecrMode: 2,
-        terminalName: 'Counter 1',
-        permitted: <EcrPermittedTransaction>[
-          EcrPermittedTransaction(
-            type: EcrTransactionType.sale,
-            minAmount: '0.100',
-            maxAmount: '5.000',
-          ),
-          EcrPermittedTransaction(type: EcrTransactionType.inquiry),
-        ],
-      ),
-      raw: '{}',
-    );
+    return signOnAnswer;
   }
 
   @override

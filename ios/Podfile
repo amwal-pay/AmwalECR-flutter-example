@@ -1,5 +1,5 @@
 # Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+platform :ios, '17.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -23,20 +23,79 @@ def flutter_root
   raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
 end
 
+# Same idea as Android / amwal-ecr-flutter example: plugin defaults + local overrides.
+def load_ecr_sdk_properties(path)
+  props = {}
+  return props unless File.exist?(path)
+
+  File.foreach(path) do |line|
+    stripped = line.strip
+    next if stripped.empty? || stripped.start_with?('#')
+    key, value = stripped.split('=', 2)
+    next if key.nil? || value.nil?
+    props[key.strip] = value.strip
+  end
+  props
+end
+
+def merged_ecr_sdk_properties
+  # Standalone example: plugin defaults live in the sibling amwal-ecr-flutter checkout.
+  plugin_props_path = File.expand_path('../../amwal-ecr-flutter/ios/ecr_sdk.properties', __dir__)
+  example_props_path = File.expand_path('ecr_sdk.properties', __dir__)
+  plugin = load_ecr_sdk_properties(plugin_props_path)
+  example = load_ecr_sdk_properties(example_props_path)
+
+  # Paths stay relative to the file that defined them.
+  cocoa_base = example.key?('ecrSdkCocoaPodsRoot') || example.key?('ecrSdkRoot') ?
+    File.dirname(example_props_path) : File.dirname(plugin_props_path)
+  spm_base = example.key?('ecrSdkSpmRoot') ?
+    File.dirname(example_props_path) : File.dirname(plugin_props_path)
+
+  props = plugin.merge(example)
+  props['_cocoaBase'] = cocoa_base
+  props['_spmBase'] = spm_base
+  props
+end
+
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+require 'pathname'
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks!
 
+  # Loads the amwal_ecr plugin (path / pub) and its iOS bridge.
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # Local AmwalECR 0.2.2, which adds sign-on. Overrides the plugin's trunk pin
-  # while this checkout sits beside the example.
-  local_sdk = File.expand_path('../../AmwalECR-iOS-CocoaPods', __dir__)
-  if File.directory?(local_sdk)
-    pod 'AmwalECR', :path => local_sdk
+  # AmwalECR selection mirrors amwal-ecr-flutter/example (project | cocoapods | spm).
+  ecr = merged_ecr_sdk_properties
+  ecr_mode = ENV.fetch('ECR_SDK_DEPENDENCY', ecr['ecrSdkDependency'] || 'cocoapods')
+  cocoa_rel = ENV.fetch(
+    'ECR_SDK_ROOT',
+    ecr['ecrSdkCocoaPodsRoot'] || ecr['ecrSdkRoot'] || '../../AmwalECR-iOS-CocoaPods'
+  )
+
+  case ecr_mode
+  when 'project'
+    sdk_path = File.expand_path(cocoa_rel, ecr['_cocoaBase'])
+    unless File.directory?(sdk_path)
+      raise <<~MSG
+        Local AmwalECR checkout not found at #{sdk_path}.
+        Clone AmwalECR-iOS-CocoaPods beside AmwalECR-flutter-example, or set
+        ecrSdkDependency=cocoapods in ios/ecr_sdk.properties.
+      MSG
+    end
+    # Pod :path is always relative to this Podfile.
+    pod_rel = Pathname.new(sdk_path).relative_path_from(Pathname.new(__dir__)).to_s
+    pod 'AmwalECR', :path => pod_rel
+    puts "[amwal_ecr] Using local AmwalECR (CocoaPods) from #{sdk_path}"
+  when 'cocoapods'
+    puts '[amwal_ecr] Using AmwalECR from CocoaPods trunk (plugin podspec)'
+  when 'spm'
+    puts '[amwal_ecr] Using AmwalECR from SwiftPM (Package.swift) — no CocoaPods override'
+  else
+    raise "Unknown ecrSdkDependency='#{ecr_mode}'. Use: project | cocoapods | spm"
   end
 
   target 'RunnerTests' do
@@ -47,5 +106,11 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+      if current.nil? || current.to_f < 17.0
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '17.0'
+      end
+    end
   end
 end
