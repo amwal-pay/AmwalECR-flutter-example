@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+13
+version: 1.0.0+15
 
 environment:
   sdk: ^3.9.0
@@ -31,10 +31,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Sibling checkout — must match amwal-ecr-flutter/example so iOS sign-on
-  # and other host features stay in lockstep with the plugin working tree.
+  # Sibling checkout — must match amwal-ecr-flutter/example so iOS sign-on,
+  # close-receipt, and other host features stay in lockstep with the plugin
+  # working tree (pub.dev 0.3.1 still stubs iOS signOn).
   amwal_ecr:
-    # path: ../amwal-ecr-flutter
+    path: ../amwal-ecr-flutter
   # The two things the Android example gets from the platform and Flutter does
   # not. Both are here to match that app, not to demonstrate anything about
   # amwal_ecr — the package itself has no dependencies beyond Flutter.
@@ -107,4 +108,3 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-

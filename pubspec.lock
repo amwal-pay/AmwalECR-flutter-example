@@ -4,11 +4,10 @@ packages:
   amwal_ecr:
     dependency: "direct main"
     description:
-      name: amwal_ecr
-      sha256: "50eef49a16c7d9a4617d426beb8711bf74061a0327555da2fb3b868e8e622816"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.1"
+      path: "../amwal-ecr-flutter"
+      relative: true
+    source: path
+    version: "0.3.2"
   args:
     dependency: transitive
     description:
