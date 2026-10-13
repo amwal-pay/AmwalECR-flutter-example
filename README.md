@@ -7,13 +7,26 @@ aligned with the Android `ecr_sdk` simulator app and the nested
 Platforms: **Android**, **iOS**, and **Windows** (LAN Wi‑Fi + Web Service; USB
 cable and app to app are Android-only).
 
+On an approved **app-to-app** result the outcome dialog offers **Print
+receipt**: the till builds a bilingual 384 px PNG (≤ 15 MB) from the operation
+(`lib/print/`) and calls `EcrTerminal.printReceipt`. The payment app’s status
+and message come back in a **Print receipt** popup (not a snackbar). Wi‑Fi /
+USB / Web Service never show that button.
+
+While a sale / void / refund / inquiry / receipt fetch is in flight the screen
+shows a **countdown** from the configured response timeout (120s LAN; **130s**
+Web Service) and **Cancel operation**. Exchange failures read as **Not
+completed**. Inquiry can look up by **original merchant reference** without
+copying that value into this inquiry’s own `merchantReference`.
+
 Launcher / home-screen name: **ECR Flutter** (Android `android:label`, iOS
 `CFBundleDisplayName`).
 
 ## Local package
 
 By default this app depends on a sibling checkout so it stays in lockstep with
-the plugin working tree (iOS `signOn` / `closeReceipt`, Android host, docs):
+the plugin working tree (`amwal_ecr` **0.4.0** / `ecr-sdk` **1.0.8** /
+`AmwalECR` **0.3.0** — same sources as `amwal-ecr-flutter/example`):
 
 ```yaml
 amwal_ecr:
@@ -30,13 +43,10 @@ flutter run -d android
 flutter run -d ios
 ```
 
-**iOS sign-on and close-receipt** need that path dependency (Wi‑Fi). Published
-pub.dev `0.3.1` still stubs iOS `signOn`; the working tree (`0.3.2`) wires both
-`signOn` and `closeReceipt` like Android. Keep `path: ../amwal-ecr-flutter`
-until you depend on a published build that includes those hosts.
-
-For a **published** package, replace the path dependency with
-`amwal_ecr: ^x.y.z` (or a `git:` ref) and run `flutter pub get`.
+Keep `path: ../amwal-ecr-flutter` for the working-tree hosts (iOS `signOn` /
+`closeReceipt`, app-to-app `printReceipt`, Web Service 130s / unknown-outcome
+`EcrFailed`). For a **published** package, replace with `amwal_ecr: ^x.y.z`
+(or a `git:` ref) and run `flutter pub get`.
 
 `flutter run -d windows` / `flutter build windows` work **only on a Windows
 machine** (or Codemagic). They cannot run on macOS or Linux.
@@ -142,8 +152,8 @@ Transactions use `EcrSessions.open`.
 
 | Host | File | Current working-tree setting |
 |------|------|------------------------------|
-| Android ecr-sdk | `android/gradle.properties` | `ecrSdkDependency=maven` (`1.0.6` via plugin) |
-| iOS AmwalECR | `ios/ecr_sdk.properties` | `ecrSdkDependency=project`, `ecrSdkVersion=0.2.3` |
+| Android ecr-sdk | plugin `amwal-ecr-flutter/android/gradle.properties` | **1.0.8** (`ecrSdkDependency` in this app’s `android/gradle.properties` may be `maven` or `project`) |
+| iOS AmwalECR | `ios/ecr_sdk.properties` | `ecrSdkVersion=0.3.0` |
 
 Paths assume `AmwalECR-iOS-CocoaPods`, `AmwalECR-iOS-SPM`, and `ECR-simulator`
 sit beside this repo. Set `ecrSdkDependency=cocoapods` (or `spm`) to use a

@@ -32,8 +32,9 @@ dependencies:
     sdk: flutter
 
   # Sibling checkout — must match amwal-ecr-flutter/example so iOS sign-on,
-  # close-receipt, and other host features stay in lockstep with the plugin
-  # working tree (pub.dev 0.3.1 still stubs iOS signOn).
+  # close-receipt, Web Service inquiry-by-reference, and other host features
+  # stay in lockstep with the plugin working tree (ECR-simulator / package
+  # docs; pub.dev lags the monorepo).
   amwal_ecr:
     path: ../amwal-ecr-flutter
   # The two things the Android example gets from the platform and Flutter does
