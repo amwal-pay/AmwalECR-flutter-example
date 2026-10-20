@@ -44,7 +44,8 @@ flutter run -d ios
 ```
 
 Keep `path: ../amwal-ecr-flutter` for the working-tree hosts (iOS `signOn` /
-`closeReceipt`, app-to-app `printReceipt`, Web Service 130s / unknown-outcome
+`closeReceipt`, app-to-app `printReceipt`, Manual settlement (`amwal_ecr` 0.5.0),
+Web Service 130s / unknown-outcome
 `EcrFailed`). For a **published** package, replace with `amwal_ecr: ^x.y.z`
 (or a `git:` ref) and run `flutter pub get`.
 
