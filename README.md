@@ -4,7 +4,7 @@ Sample till app for [`amwal_ecr`](https://github.com/amwal-pay/amwal-ecr-flutter
 aligned with the Android `ecr_sdk` simulator app and the nested
 `amwal-ecr-flutter/example`.
 
-Platforms: **Android**, **iOS**, and **Windows** (LAN Wi‑Fi + Web Service; USB
+Platforms: **Android**, **iOS**, and **Windows** (Wi‑Fi + Web Service; USB
 cable and app to app are Android-only).
 
 On an approved **app-to-app** result the outcome dialog offers **Print
@@ -14,7 +14,7 @@ and message come back in a **Print receipt** popup (not a snackbar). Wi‑Fi /
 USB / Web Service never show that button.
 
 While a sale / void / refund / inquiry / receipt fetch is in flight the screen
-shows a **countdown** from the configured response timeout (120s LAN; **130s**
+shows a **countdown** from the configured response timeout (120s Wi-Fi; **130s**
 Web Service) and **Cancel operation**. Exchange failures read as **Not
 completed**. Inquiry can look up by **original merchant reference** without
 copying that value into this inquiry’s own `merchantReference`.
@@ -59,7 +59,7 @@ machine** (or Codemagic). They cannot run on macOS or Linux.
 | Mode | Windows |
 |------|---------|
 | App to app | ✘ — Android only |
-| Wi‑Fi (LAN TCP, port 9100) | ✔ |
+| Wi‑Fi (TCP, port 9100) | ✔ |
 | Web Service (Hub REST) | ✔ |
 | USB cable | ✘ — typed unsupported (Android only) |
 | Bluetooth | ✘ |
@@ -125,12 +125,12 @@ terminal when the list is empty — they never overwrite saved values.
 | Define | Purpose |
 |--------|---------|
 | `ECR_ENVIRONMENT` | `SIT` / `UAT` / `PROD` |
-| `ECR_WIFI_SECURE_HASH_KEY` | LAN signing secret (hex) |
+| `ECR_WIFI_SECURE_HASH_KEY` | Wi-Fi signing secret (hex) |
 | `ECR_WS_SECURE_HASH_KEY` | Web Service signing secret (hex) |
 | `ECR_LIVE_MODE` | `wifi` (default) or `webService` |
 | `ECR_LIVE_SERIAL` | Serial for the seeded terminal (required to seed) |
 | `ECR_LIVE_TERMINAL_NAME` | Display name (default `Live terminal`) |
-| `ECR_LIVE_IP` / `ECR_LIVE_PORT` | LAN address (port default `9100`) |
+| `ECR_LIVE_IP` / `ECR_LIVE_PORT` | Wi-Fi address (port default `9100`) |
 | `ECR_LIVE_MERCHANT_ID` / `ECR_LIVE_TERMINAL_ID` | Web Service ids |
 
 ```bash
